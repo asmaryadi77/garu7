@@ -9,7 +9,104 @@
     <style>
         body { font-family: 'Inter', sans-serif; }
     </style>
+    .hero-actions {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 30px;
+}
+
+.price-calc-card {
+    background: #ffffff;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    text-align: left;
+    width: 280px;
+    border: 1px solid #eee;
+}
+
+.price-calc-card h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    color: #333;
+}
+
+.input-group {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.input-group input, .input-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.result-area {
+    font-size: 15px;
+    border-top: 1px dashed #ddd;
+    padding-top: 10px;
+    display: flex;
+    justify-content: space-between;
+}
+
+#totalPrice {
+    color: #2ecc71;
+}
+
+/* Responsif buat HP */
+@media (max-width: 600px) {
+    .hero-actions {
+        flex-direction: column;
+    }
+    .price-calc-card {
+        width: 100%;
+    }
+}
 </head>
+    const distInput = document.getElementById('distance');
+const zoneInput = document.getElementById('zone');
+const priceDisplay = document.getElementById('totalPrice');
+const waLink = document.getElementById('waLink');
+
+function calculatePrice() {
+    const km = parseFloat(distInput.value) || 0;
+    const zone = zoneInput.value;
+    
+    let total = 0;
+    const baseFare = 10000; // Tarif 3KM pertama
+    const perKm = 2500;     // Tarif KM selanjutnya
+    const surchargeKaler = 5000; // Tambahan area atas (medan berat)
+
+    if (km > 0) {
+        if (km <= 3) {
+            total = baseFare;
+        } else {
+            total = baseFare + ((km - 3) * perKm);
+        }
+
+        // Tambah surcharge jika pilih zona Kaler Atas
+        if (zone === 'kaler-jauh') {
+            total += surchargeKaler;
+        }
+    }
+
+    const formattedPrice = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(total);
+    priceDisplay.innerText = formattedPrice;
+
+    // Update link WA agar otomatis membawa info ongkir
+    const msg = encodeURIComponent(`Halo GARU7, saya mau order. Estimasi jarak ${km} KM di ${zone}. Ongkir di web: ${formattedPrice}`);
+    waLink.href = `https://wa.me/628XXXXXXXXX?text=${msg}`;
+}
+
+distInput.addEventListener('input', calculatePrice);
+zoneInput.addEventListener('change', calculatePrice);
 <body class="bg-gray-50 text-gray-900">
 
     <nav class="p-5 bg-white shadow-sm sticky top-0 z-50">
