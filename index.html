@@ -30,6 +30,19 @@
            class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transition-all inline-block">
             Order via WhatsApp Sekarang
         </a>
+        <div class="price-calc-card">
+                <h4>Cek Estimasi Ongkir</h4>
+                <div class="input-group">
+                    <input type="number" id="distance" placeholder="Jarak (KM)" min="1">
+                    <select id="zone">
+                        <option value="normal">Zona Normal</option>
+                        <option value="kaler-jauh">Tarogong Kaler (Atas)</option>
+                    </select>
+                </div>
+                <div class="result-area">
+                    <span>Estimasi: </span>
+                    <strong id="totalPrice">Rp 0</strong>
+                </div>
     </header>
 
     <section class="container mx-auto px-5 py-10">
