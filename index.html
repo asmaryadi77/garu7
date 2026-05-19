@@ -732,34 +732,34 @@
     <p>Lab Project by twinstech</p>
 </footer>
 
-<script>
-// ===== CONFIG PROMO ANTI-BONCOS =====
-let sisaKuotaPromo = 10; // Batas maksimal order subsidi lu seharian biar gak jebol kasnya
+<script>// ===== CONFIG PROMO (PAKSA AKTIF UNTUK LIVE TEST) =====
+let sisaKuotaPromo = 10; 
 
 function checkPromoStatus() {
-    const sekarang = new Date();
-    const hari = sekarang.getDay(); // 3 = Rabu, 5 = Jumat
-    const jam = sekarang.getHours();
-    
-    let promoAktif = false;
-    let namaPromo = "";
-    let nominalDiskon = 0;
+    // KITA PAKSA TRUE BIAR LANGSUNG KELUAR DI DOMAIN LIVE
+    let promoAktif = true; 
+    let namaPromo = "Rabu Seru";
+    let nominalDiskon = 5000; 
 
-    // RULE: Hanya aktif Rabu & Jumat jam 13:00 s/d 15:00 WIB & Kuota masih ada
-    if ((hari === 3 || hari === 5) && (jam >= 13 && jam < 15) && sisaKuotaPromo > 0) {
-        promoAktif = true;
-        namaPromo = (hari === 3) ? "Rabu Seru" : "Jumat Berkah";
-        nominalDiskon = 5000; // Subsidi potongan Rp5.000
-    }
-
-    // Tampilkan / sembunyikan Top Promo Bar
+    // Tampilkan / sembunyikan Top Promo Bar secara otomatis
     const topBar = document.getElementById('topPromoBar');
-    if (promoAktif) {
-        topBar.style.display = 'block';
-        document.getElementById('promoText').innerText = `🔥 PROMO ${namaPromo.toUpperCase()} AKTIF! Diskon Ongkir Rp5.000 Langsung Di Potong!`;
-        document.getElementById('promoQuota').innerText = sisaKuotaPromo;
-    } else {
-        topBar.style.display = 'none';
+    if (topBar) {
+        if (promoAktif && sisaKuotaPromo > 0) {
+            topBar.style.display = 'block'; // Memastikan display-nya muncul
+            
+            // Mengisi text ke elemen text promo
+            const promoTextEl = document.getElementById('promoText');
+            if (promoTextEl) {
+                promoTextEl.innerText = `🔥 PROMO ${namaPromo.toUpperCase()} AKTIF! Diskon Ongkir Rp5.000 (Minimal Belanja Rp50.000 biar kaga boncos)!`;
+            }
+            
+            const quotaEl = document.getElementById('promoQuota');
+            if (quotaEl) {
+                quotaEl.innerText = sisaKuotaPromo;
+            }
+        } else {
+            topBar.style.display = 'none';
+        }
     }
 
     return { aktif: promoAktif, diskon: nominalDiskon, nama: namaPromo };
