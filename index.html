@@ -1,39 +1,235 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+<script>// Playables SDK v1.0.0
+// Game lifecycle bridge: rAF-based game-ready detection + event communication
+(function() {
+  'use strict';
+
+  if (window.playablesSDK) return;
+
+  var HANDLER_NAME = 'playablesGameEventHandler';
+  var ANDROID_BRIDGE_NAME = '_MetaPlayablesBridge';
+  var RAF_FRAME_THRESHOLD = 3;
+
+  var gameReadySent = false;
+  var firstInteractionSent = false;
+  var errorSent = false;
+  var frameCount = 0;
+  var originalRAF = window.requestAnimationFrame;
+
+  function hasIOSBridge() {
+    return !!(window.webkit &&
+              window.webkit.messageHandlers &&
+              window.webkit.messageHandlers[HANDLER_NAME]);
+  }
+
+  function hasAndroidBridge() {
+    return !!(window[ANDROID_BRIDGE_NAME] &&
+              typeof window[ANDROID_BRIDGE_NAME].postEvent === 'function');
+  }
+
+  function isInIframe() {
+    return !!(window.parent && window.parent !== window);
+  }
+
+  function sendEvent(eventName, payload) {
+    var message = {
+      type: eventName,
+      payload: payload || {},
+      timestamp: Date.now()
+    };
+
+    if (hasIOSBridge()) {
+      try {
+        window.webkit.messageHandlers[HANDLER_NAME].postMessage(message);
+      } catch (e) { /* ignore */ }
+      return;
+    }
+
+    if (hasAndroidBridge()) {
+    try {
+      var p = payload || {};
+      p.__secureToken = window.__fbAndroidBridgeAuthToken || '';
+      p.timestamp = message.timestamp;
+      window[ANDROID_BRIDGE_NAME].postEvent(
+        eventName,
+        JSON.stringify(p)
+      );
+    } catch (e) { /* ignore */ }
+    return;
+  }
+
+    if (isInIframe()) {
+      try {
+        window.parent.postMessage(message, '*');
+      } catch (e) { /* ignore */ }
+      return;
+    }
+  }
+
+  function onFrame() {
+    if (gameReadySent) return;
+
+    frameCount++;
+    if (frameCount >= RAF_FRAME_THRESHOLD) {
+      gameReadySent = true;
+      sendEvent('game_ready', {
+        frame_count: frameCount,
+        detected_at: Date.now()
+      });
+      return;
+    }
+
+    originalRAF.call(window, onFrame);
+  }
+
+  if (originalRAF) {
+    window.requestAnimationFrame = function(callback) {
+      if (!gameReadySent) {
+        return originalRAF.call(window, function(timestamp) {
+          frameCount++;
+          if (frameCount >= RAF_FRAME_THRESHOLD && !gameReadySent) {
+            gameReadySent = true;
+            sendEvent('game_ready', {
+              frame_count: frameCount,
+              detected_at: Date.now()
+            });
+          }
+          callback(timestamp);
+        });
+      }
+      return originalRAF.call(window, callback);
+    };
+  }
+
+  function setupFirstInteractionDetection() {
+    var events = ['touchstart', 'mousedown', 'keydown'];
+
+    function onFirstInteraction() {
+      if (firstInteractionSent) return;
+      firstInteractionSent = true;
+      sendEvent('user_interaction_start', null);
+
+      for (var i = 0; i < events.length; i++) {
+        document.removeEventListener(events[i], onFirstInteraction, true);
+      }
+    }
+
+    for (var i = 0; i < events.length; i++) {
+      document.addEventListener(events[i], onFirstInteraction, true);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupFirstInteractionDetection);
+  } else {
+    setupFirstInteractionDetection();
+  }
+
+  window.addEventListener('error', function(event) {
+    if (errorSent) return;
+    errorSent = true;
+    sendEvent('error', {
+      message: event.message || 'Unknown error',
+      source: event.filename || '',
+      lineno: event.lineno || 0,
+      colno: event.colno || 0,
+      auto_captured: true
+    });
+  });
+
+  window.addEventListener('unhandledrejection', function(event) {
+    if (errorSent) return;
+    errorSent = true;
+    var reason = event.reason;
+    sendEvent('error', {
+      message: (reason instanceof Error) ? reason.message : String(reason),
+      type: 'unhandled_promise_rejection',
+      auto_captured: true
+    });
+  });
+
+  window.playablesSDK = {
+    complete: function(score) {
+      sendEvent('game_ended', {
+        score: score,
+        completed: true
+      });
+    },
+
+    error: function(message) {
+      if (errorSent) return;
+      errorSent = true;
+      sendEvent('error', {
+        message: message || 'Unknown error',
+        auto_captured: false
+      });
+    },
+
+    sendEvent: function(eventName, payload) {
+      if (!eventName || typeof eventName !== 'string') return;
+      sendEvent(eventName, payload);
+    }
+  };
+
+  if (originalRAF) {
+    originalRAF.call(window, onFrame);
+  }
+})();</script>
+<script>window.Intl=window.Intl||{};Intl.t=function(s){return(Intl._locale&&Intl._locale[s])||s;};</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GARU7 - Solusi Jasa & Kurir di Garut</title>
+    <title>BAGUS - Jasa Kurir & Ojol Lokal Tercepat di Garut</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         :root {
             --primary: #2ecc71;
             --secondary: #e67e22;
             --dark: #2c3e50;
             --light: #f8f9fa;
+            --danger: #e74c3c;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0; padding: 0; background-color: var(--light); color: var(--dark);
         }
+        
+        /* NEW: Promo Top Bar CSS */
+        .promo-top-bar {
+            background: var(--danger);
+            color: white;
+            text-align: center;
+            padding: 8px 10px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            display: none; /* Diatur via JS */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
         header {
             padding: 20px; display: flex; justify-content: space-between; align-items: center;
             max-width: 1200px; margin: 0 auto;
         }
-        .logo { font-weight: bold; color: var(--secondary); font-size: 1.2rem; }
-        .tag-lokal { background: #ffeaa7; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; }
+        
+        /* UPDATED: Mengakomodasi logo gambar */
+        .logo-container { display: flex; align-items: center; gap: 10px; }
+        .logo-img { height: 40px; width: auto; object-fit: contain; }
+        .logo { font-weight: bold; color: var(--secondary); font-size: 1.4rem; display: flex; align-items: center; }
+        .tag-lokal { background: #ffeaa7; font-size: 0.7rem; padding: 4px 10px; border-radius: 10px; font-weight: bold; }
 
-        /* Hero Section */
         .hero {
-            text-align: center; padding: 60px 20px; max-width: 900px; margin: 0 auto;
+            text-align: center; padding: 40px 20px 50px 20px; max-width: 900px; margin: 0 auto;
         }
-        .hero h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        .hero h1 { font-size: 2.3rem; margin-bottom: 10px; line-height: 1.2; }
         .hero h1 span { color: var(--secondary); }
         .hero p { color: #666; margin-bottom: 30px; font-size: 1.1rem; }
+        .hero .tagline-sub { font-style: italic; color: var(--secondary); font-weight: 600; margin-top: -5px; margin-bottom: 25px; }
 
-        /* Actions Area - Fixed for Mobile */
         .hero-actions {
             display: flex; gap: 20px; justify-content: center; align-items: flex-start;
-            flex-wrap: wrap; margin-bottom: 50px;
+            flex-wrap: wrap; margin-bottom: 20px;
         }
 
         .btn-wa {
@@ -43,22 +239,119 @@
             transition: 0.3s; display: inline-block;
         }
         .btn-baraya {
-    display: inline-block;
-    margin-top: 10px;
-    padding: 10px 20px;
-    border: 2px solid var(--secondary); /* Warna Oranye logo */
-    color: var(--secondary);
-    text-decoration: none;
-    border-radius: 30px;
-    font-weight: bold;
-    font-size: 0.9rem;
-    transition: 0.3s;
-}
-.btn-baraya:hover {
-    background: var(--secondary);
-    color: white;
-}
-        /* Calculator Styling */
+            display: inline-block; margin-top: 10px; padding: 10px 20px;
+            border: 2px solid var(--secondary); color: var(--secondary);
+            text-decoration: none; border-radius: 30px; font-weight: bold;
+            font-size: 0.9rem; transition: 0.3s;
+        }
+        .btn-baraya:hover { background: var(--secondary); color: white; }
+
+        /* ===== MAP SECTION ===== */
+        .map-section {
+            max-width: 900px; margin: 0 auto 20px auto; padding: 0 20px;
+        }
+        .map-section h4 {
+            font-size: 1rem; margin-bottom: 10px;
+            border-bottom: 2px solid var(--secondary); display: inline-block; padding-bottom: 4px;
+        }
+
+        .gps-status {
+            display: flex; align-items: center; gap: 8px;
+            background: white; border: 1px solid #eee; border-radius: 10px;
+            padding: 8px 14px; margin-bottom: 10px; font-size: 0.85rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .gps-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #ccc; flex-shrink: 0; transition: 0.3s;
+        }
+        .gps-dot.active { background: var(--primary); animation: pulse 1.5s infinite; }
+        .gps-dot.error { background: #e74c3c; }
+        @keyframes pulse {
+            0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+        }
+
+        .dest-search-wrap {
+            position: relative; margin-bottom: 10px;
+        }
+        .dest-search-wrap input {
+            width: 100%; box-sizing: border-box;
+            padding: 11px 14px 11px 38px;
+            border: 1px solid #ddd; border-radius: 10px;
+            font-size: 0.9rem; outline: none;
+            transition: border 0.2s;
+        }
+        .dest-search-wrap input:focus { border-color: var(--primary); }
+        .dest-search-wrap .search-icon {
+            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+            font-size: 1rem; pointer-events: none;
+        }
+        .dest-search-wrap .clear-btn {
+            position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; font-size: 1rem; cursor: pointer;
+            color: #aaa; display: none; padding: 2px;
+        }
+        .dest-search-wrap .clear-btn.show { display: block; }
+
+        .autocomplete-list {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 9999;
+            background: white; border: 1px solid #ddd; border-top: none;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+            max-height: 220px; overflow-y: auto; display: none;
+        }
+        .autocomplete-list.show { display: block; }
+        .autocomplete-item {
+            padding: 10px 14px; font-size: 0.85rem; cursor: pointer;
+            border-bottom: 1px solid #f5f5f5; transition: background 0.15s;
+            display: flex; align-items: flex-start; gap: 8px;
+        }
+        .autocomplete-item:hover { background: #f0fdf4; }
+        .autocomplete-item:last-child { border-bottom: none; }
+        .autocomplete-item .ac-icon { color: var(--secondary); flex-shrink: 0; margin-top: 1px; }
+        .autocomplete-item .ac-name { font-weight: 600; color: var(--dark); }
+        .autocomplete-item .ac-address { font-size: 0.78rem; color: #888; margin-top: 2px; }
+        .autocomplete-loading {
+            padding: 12px 14px; font-size: 0.85rem; color: #888; text-align: center;
+        }
+
+        #map {
+            width: 100%; height: 320px; border-radius: 15px;
+            border: 1px solid #eee; box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .map-result {
+            margin-top: 10px; font-size: 0.9rem; color: var(--dark); min-height: 20px;
+        }
+        .map-result span { color: var(--primary); font-weight: bold; }
+
+        .map-actions {
+            display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;
+        }
+        .btn-reset-map {
+            background: none; border: 1px solid #ccc; border-radius: 20px;
+            padding: 5px 15px; font-size: 0.8rem; cursor: pointer;
+            color: #888; transition: 0.2s;
+        }
+        .btn-reset-map:hover { border-color: var(--secondary); color: var(--secondary); }
+        .btn-my-location {
+            background: var(--primary); border: none; border-radius: 20px;
+            padding: 5px 15px; font-size: 0.8rem; cursor: pointer;
+            color: white; transition: 0.2s; display: flex; align-items: center; gap: 4px;
+        }
+        .btn-my-location:hover { background: #27ae60; }
+        .btn-my-location:disabled { background: #aaa; cursor: not-allowed; }
+
+        .btn-order-from-map {
+            display: none; background: var(--secondary); border: none;
+            border-radius: 20px; padding: 8px 20px; font-size: 0.85rem;
+            cursor: pointer; color: white; font-weight: bold;
+            transition: 0.2s; text-decoration: none;
+        }
+        .btn-order-from-map.show { display: inline-flex; align-items: center; gap: 6px; }
+        .btn-order-from-map:hover { background: #d35400; }
+
+        /* Calculator */
         .price-calc {
             background: white; padding: 20px; border-radius: 15px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
@@ -71,134 +364,736 @@
         }
         .result {
             margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd;
-            display: flex; justify-content: space-between; align-items: center;
+            display: flex; flex-direction: column; gap: 8px;
         }
+        .result-row { display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 0.9rem; }
         #totalPrice { color: var(--primary); font-weight: bold; font-size: 1.2rem; }
+        #promoRow { display: none; color: var(--danger); font-weight: 600; }
 
-                /* Cards Section */
-        .cards {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px; max-width: 1200px; margin: 0 auto; padding: 20px;
+        /* ===== LAYANAN GRID (Grab-style) ===== */
+        .layanan-section {
+            max-width: 900px; margin: 30px auto 40px auto; padding: 0 20px;
         }
-        .card {
-            background: white; padding: 30px; border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.03);
+        .layanan-section h4 {
+            font-size: 1rem; margin-bottom: 16px;
+            border-bottom: 2px solid var(--secondary); display: inline-block; padding-bottom: 4px;
         }
-        .card img { width: 40px; margin-bottom: 15px; }
+        .layanan-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .layanan-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px 12px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--dark);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border: 1px solid #f0f0f0;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        .layanan-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        .layanan-card .svc-icon {
+            font-size: 2.2rem;
+            line-height: 1;
+        }
+        .layanan-card .svc-name {
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-align: center;
+            color: var(--dark);
+        }
+        .layanan-card.is-new {
+            border: 2px solid #3498db;
+            position: relative;
+        }
+        .layanan-card.is-new .svc-name { color: #3498db; }
+        .badge-new {
+            position: absolute; top: 8px; right: 8px;
+            background: #3498db; color: white;
+            font-size: 0.55rem; font-weight: 900;
+            padding: 2px 7px; border-radius: 20px;
+            letter-spacing: 0.08em;
+        }
+        /* AM card — link ke store */
+        .layanan-card.is-store {
+            border: 2px solid var(--secondary);
+        }
+        .layanan-card.is-store .svc-name { color: var(--secondary); }
+
+        /* AM Featured - span 2 kolom */
+        .layanan-am-featured {
+            grid-column: span 2;
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 14px;
+            border: 2px solid var(--secondary);
+            gap: 8px;
+        }
+        .am-label {
+            font-size: 0.7rem; font-weight: 800;
+            color: var(--secondary); letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .am-inner {
+            display: flex; gap: 12px; align-items: center; width: 100%;
+        }
+        .am-thumb {
+            width: 60px; height: 60px; border-radius: 10px;
+            object-fit: cover; flex-shrink: 0;
+            border: 1px solid #f0f0f0;
+        }
+        .am-info {
+            display: flex; flex-direction: column; gap: 3px;
+        }
+        .am-name {
+            font-size: 0.85rem; font-weight: 700; color: var(--dark);
+        }
+        .am-sub {
+            font-size: 0.7rem; color: #aaa;
+        }
+        .am-price {
+            font-size: 0.78rem; font-weight: 700; color: var(--primary);
+        }
+
+        /* ===== FNB GRID ===== */
+        .fnb-section {
+            max-width: 900px; margin: 0 auto 40px auto; padding: 0 20px;
+        }
+        .fnb-section h4 {
+            font-size: 1rem; margin-bottom: 16px;
+            border-bottom: 2px solid var(--primary); display: inline-block; padding-bottom: 4px;
+        }
+        .fnb-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        .fnb-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            color: var(--dark);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border: 1px solid #f0f0f0;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .fnb-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        .fnb-card .fnb-icon { font-size: 1.8rem; line-height: 1; }
+        .fnb-thumb {
+            width: 100%; height: 80px; object-fit: cover;
+            border-radius: 10px; margin-bottom: 2px;
+        }
+        .fnb-card .fnb-name {
+            font-size: 0.75rem; font-weight: 700;
+            text-align: center; color: var(--dark);
+            line-height: 1.3;
+        }
+        .fnb-card .fnb-jam {
+            font-size: 0.68rem; color: #aaa;
+        }
+        .fnb-lihat {
+            grid-column: 1 / -1;
+            text-align: center;
+            margin-top: 4px;
+        }
+        .fnb-lihat a {
+            font-size: 0.8rem; color: var(--secondary);
+            text-decoration: none; font-weight: 600;
+        }
+        .fnb-lihat a:hover { text-decoration: underline; }
+
+        /* NEW: Akses Ekosistem Kiarka UMKM Section */
+        .kiarka-center-box {
+            max-width: 860px; margin: 0 auto 30px auto; padding: 0 20px;
+        }
+        .kiarka-banner {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white; padding: 20px; border-radius: 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .kiarka-text h5 { margin: 0 0 5px 0; font-size: 1.1rem; color: var(--primary); }
+        .kiarka-text p { margin: 0; font-size: 0.85rem; color: #ccc; }
+        .btn-kiarka {
+            background: var(--secondary); color: white; text-decoration: none;
+            padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 0.85rem;
+            transition: 0.2s;
+        }
+        .btn-kiarka:hover { background: #d35400; }
 
         footer { text-align: center; padding: 40px; font-size: 0.8rem; color: #888; }
 
-        /* RESPONSIVE FIX UNTUK HP */
         @media (max-width: 600px) {
             .hero h1 { font-size: 1.8rem; }
             .hero-actions { flex-direction: column; align-items: center; }
-            .btn-wa { width: 80%; text-align: center; order: 2; }
-            .price-calc { width: 90%; order: 1; }
+            .btn-wa { width: 80%; text-align: center; }
+            .price-calc { width: 90%; }
+            #map { height: 260px; }
+            .layanan-grid { gap: 8px; }
+            .layanan-card { padding: 16px 8px 12px; }
+            .layanan-card .svc-icon { font-size: 1.9rem; }
+            .layanan-card .svc-name { font-size: 0.75rem; }
+            .kiarka-banner { flex-direction: column; text-align: center; }
         }
     </style>
 </head>
 <body>
 
+<div id="topPromoBar" class="promo-top-bar">
+    📣 <span id="promoText">PROMO AKTIF HARI INI!</span> (Sisa Kuota: <span id="promoQuota">0</span> Slot)
+</div>
+
 <header>
-    <div class="logo">GARU7 (Garda Andalan Ready Untuk 7ujuan)</div>
+    <div class="logo-container">
+        <div class="logo">BAGUS</div>
+    </div>
     <div class="tag-lokal">ASLI GARUT</div>
 </header>
 
 <section class="hero">
     <h1>Solusi Sat-Set <br><span>Jasa & Kurir</span> di Garut</h1>
-    <p>Gak usah ribet, tinggal klik. Ojek, kirim barang, pesen makanan, tim GARU7 siap meluncur ke lokasi.</p>
+    <p class="tagline-sub">"BAGUS datang, semua senang!"</p>
+    <p>Gak usah ribet, tinggal klik. Ojek, kirim barang, pesen makanan, dan jasa lainnya — tim BAGUS siap meluncur ke lokasi.</p>
 
     <div class="hero-actions">
-        <a href="https://wa.me/6281543333877" class="btn-wa" id="waLink">Order via WhatsApp Sekarang</a>
-        <a href="https://docs.google.com/forms/d/e/1FAIpQLSef9z-RTa37jV1wedSnqnee9PKpVGf4LpIx1H_gsOMEbPSEig/viewform?usp=publish-editor" class="btn-baraya">Gabung Jadi Baraya GARU7</a>
-        <div class="price-calc">
-            <h4>Cek Estimasi Ongkir</h4>
-            <div class="input-group">
-                <input type="number" id="distance" placeholder="Masukkan Jarak (KM)" min="1">
-                <select id="zone">
-                    <option value="normal">Zona Normal (Garkot/Tarkid)</option>
-                    <option value="tarkal-jauh">Tarogong Kaler (Arah Atas)</option>
-                    <option value="luar-garut">Luar Garut Kota (Cibatu/Wanaraja/Bayongbong/dll)</option>
-                </select>
+        <a href="https://wa.me/6287895334844" class="btn-wa" id="waLink">Order via WhatsApp Sekarang</a>
+        <a href="https://docs.google.com/forms/d/e/1FAIpQLSef9z-RTa37jV1wedSnqnee9PKpVGf4LpIx1H_gsOMEbPSEig/viewform?usp=publish-editor" class="btn-baraya">Gabung Jadi BAGUS</a>
+    </div>
+</section>
+
+<div class="map-section">
+    <h4>🗺️ Order Ojek — Pilih Lokasi</h4>
+
+    <div class="gps-status">
+        <div class="gps-dot" id="gpsDot"></div>
+        <span id="gpsStatusText">Mendeteksi lokasi kamu...</span>
+    </div>
+
+    <div class="dest-search-wrap" id="destWrap">
+        <span class="search-icon">📍</span>
+        <input type="text" id="destInput" placeholder="Ketik tujuan kamu di Garut..." autocomplete="off" />
+        <button class="clear-btn" id="clearDest" onclick="clearDest()">✕</button>
+        <div class="autocomplete-list" id="acList"></div>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="map-result" id="mapResult">Menunggu lokasi GPS kamu...</div>
+
+    <div class="map-actions">
+        <button class="btn-my-location" id="btnMyLoc" onclick="requestGPS()">📡 Lokasi Saya</button>
+        <button class="btn-reset-map" onclick="resetMap()">🔄 Reset</button>
+        <a href="#" class="btn-order-from-map" id="btnOrderMap">🛵 Order/Nego via WA</a>
+    </div>
+</div>
+
+<div class="map-section" style="margin-top: 10px; margin-bottom: 30px;">
+    <h4>🧮 Cek Estimasi Ongkir</h4>
+    <div class="price-calc" style="width: 100%; box-sizing: border-box;">
+        <div class="input-group">
+            <select id="vehicle">
+                <option value="motor">🛵 Motor</option>
+                <option value="mobil">🚗 Mobil</option>
+            </select>
+            <input type="number" id="distance" placeholder="Jarak (KM) — otomatis dari peta" min="1" readonly>
+        </div>
+        <div class="result">
+            <div id="basePriceRow" class="result-row" style="display:none; color:#888;">
+                <span>Harga Normal:</span>
+                <span id="basePriceText" style="text-decoration: line-through;">Rp 0</span>
             </div>
-            <div class="result">
-                <span>Total Estimasi:</span>
+            <div id="promoRow" class="result-row">
+                <span>Potongan Promo:</span>
+                <span id="promoTextValue">-Rp 0</span>
+            </div>
+            <div class="result-row" style="margin-top: 5px; border-top: 1px dashed #eee; padding-top: 5px;">
+                <span style="font-weight: bold;">Total Estimasi:</span>
                 <span id="totalPrice">Rp 0</span>
             </div>
         </div>
+        <p style="font-size:0.75rem;color:#aaa;margin:8px 0 0 0;">📍 Jarak dihitung otomatis dari peta. Pilih lokasi jemput & tujuan di atas.</p>
     </div>
-</section>
+</div>
 
-<section class="cards">
-    <div class="card">
-        <img src="https://cdn-icons-png.flaticon.com/512/717/717434.png" alt="Ojek">
-        <h3>GARU7 Jemput</h3>
-        <p>Antar jemput sekolah, kerja, atau ke mana saja. Driver amanah & paham jalan tikus Garut.</p>
+<div class="kiarka-center-box">
+    <div class="kiarka-banner">
+        <div class="kiarka-text">
+            <h5>🛒 Kiarka Store — LevelUP UMKM Center</h5>
+            <p>Mau belanja produk, jajanan, dan komoditas lokal Garut? Belanja instan via mitra tepercaya.</p>
+        </div>
+        <a href="https://store.kiarka.id" target="_blank" class="btn-kiarka">Kunjungi Toko →</a>
     </div>
-    <div class="card">
-        <img src="https://cdn-icons-png.flaticon.com/512/2312/2312683.png" alt="Kurir">
-        <h3>GARU7 Bantos</h3>
-        <p>Peryogi bantosan ngintun paket, pangmeserkeun, atanapi naon bae kantun nyarios pasti dibantos baraya</p>
-        <p> (Perlu bantuan untuk kirim paket, jasa titip, atau perlu bantuan apapun asal bilang pasti dibantu baraya) </p>
+</div>
+
+<div class="layanan-section">
+    <h4>🚀 Pilih Layanan</h4>
+    <div class="layanan-grid">
+
+        <a href="https://wa.me/6287895334844?text=Halo%20BAGUS%2C%20saya%20mau%20order%20BAGUS%20Jemput." class="layanan-card">
+            <span class="svc-icon">🛵</span>
+            <span class="svc-name">BAGUS Jemput</span>
+        </a>
+
+        <a href="https://wa.me/6287895334844?text=Halo%20BAGUS%2C%20saya%20mau%20order%20BAGUS%20Jasa." class="layanan-card">
+            <span class="svc-icon">📦</span>
+            <span class="svc-name">BAGUS Jasa</span>
+        </a>
+
+        <a href="https://store.kiarka.id" class="layanan-card is-store">
+            <span class="svc-icon">🍔</span>
+            <span class="svc-name">BAGUS AM<br><small style="font-size:10px; font-weight:normal; color:#888;">"Semua Kenyang!"</small></span>
+        </a>
+
+        <a href="https://wa.me/6287895334844?text=Halo%20BAGUS%2C%20saya%20mau%20order%20BAGUS%20Bersih." class="layanan-card">
+            <span class="svc-icon">🧹</span>
+            <span class="svc-name">BAGUS Bersih</span>
+        </a>
+
+        <a href="https://wa.me/6287895334844?text=Halo%20BAGUS%2C%20saya%20mau%20order%20BAGUS%20Servis." class="layanan-card">
+            <span class="svc-icon">🔧</span>
+            <span class="svc-name">BAGUS Servis</span>
+        </a>
+
+        <a href="https://wa.me/6287895334844?text=Halo%20BAGUS%2C%20saya%20mau%20order%20BAGUS%20Antri." class="layanan-card">
+            <span class="svc-icon">🕐</span>
+            <span class="svc-name">BAGUS Antri</span>
+        </a>
+
+        <a href="https://wa.me/6287895334844?text=Halo%20BAGUS%2C%20saya%20mau%20order%20BAGUS%20Mobil." class="layanan-card is-new">
+            <span class="badge-new">NEW</span>
+            <span class="svc-icon">🚗</span>
+            <span class="svc-name">BAGUS Mobil</span>
+        </a>
+
+        <a href="https://store.kiarka.id/mieayamoye" class="layanan-card layanan-am-featured">
+            <div class="am-label">🍔 BAGUS AM</div>
+            <div class="am-inner">
+                <img src="https://store.kiarka.id/assets/uploads/prod_69fb44d976e9f.jpg" alt="Mie Ayam Oye" class="am-thumb" />
+                <div class="am-info">
+                    <span class="am-name">Mie Ayam Oye</span>
+                    <span class="am-sub">🕐 10.00 – 22.00 · Tarogong Kidul</span>
+                    <span class="am-price">Mulai Rp 10.000</span>
+                </div>
+            </div>
+        </a>
+
     </div>
-    <div class="card">
-        <img src="https://cdn-icons-png.flaticon.com/512/3565/3565418.png" alt="Food">
-        <h3>GARU7 AM </h3>
-        <p>Sagala tuangeun, jajanan, sareng leueuteun, kantun AM!</p>
-        <p>(Semua makanan, jajanan, dan minuman, tinggal AM!)</p>
+</div>
+
+<div class="fnb-section">
+    <h4>🍔 BAGUS AM</h4>
+    <div class="fnb-grid">
+
+        <a href="https://store.kiarka.id/lumpiabasahnazzrul" class="fnb-card">
+            <img src="https://store.kiarka.id/assets/uploads/prod_69f9ad24418aa.jpg" class="fnb-thumb" alt="Lumpia Basah Nazzrul" />
+            <span class="fnb-name">Lumpia Basah Nazzrul</span>
+            <span class="fnb-jam">🕐 09.00 – 21.00</span>
+        </a>
+
+        <a href="https://store.kiarka.id/pecelleledansotoazzam" class="fnb-card">
+            <img src="https://store.kiarka.id/assets/uploads/prod_69fb45c712b4f.jpg" class="fnb-thumb" alt="Pecel Lele & Soto Azzam" />
+            <span class="fnb-name">Pecel Lele & Soto Azzam</span>
+            <span class="fnb-jam">🕐 16.00 – 23.00</span>
+        </a>
+
+        <a href="https://store.kiarka.id/eskelapamangagus" class="fnb-card">
+            <img src="https://store.kiarka.id/assets/uploads/prod_69fade5823f22.jpg" class="fnb-thumb" alt="Es Kelapa Mang Agus" />
+            <span class="fnb-name">Es Kelapa Mang Agus</span>
+            <span class="fnb-jam">🕐 10.00 – 17.30</span>
+        </a>
+
+        <div class="fnb-lihat">
+            <a href="https://store.kiarka.id">Lihat semua menu → store.kiarka.id</a>
+        </div>
+
     </div>
-</section>
+</div>
 
 <footer>
-    <p>© 2026 GARU7 | Ekosistem ti <a href="https://hamb4allaah.my.id" style="color: #2ecc71; text-decoration: none; font-weight: bold;">hamb4allaah.my.id</a></p>
-    <p>Lab Project by tw1nst3ch</p>
+    <p>© 2026 BAGUS | Ekosistem ti <a href="https://kiarka.id" style="color: #2ecc71; text-decoration: none; font-weight: bold;">kiarka.id</a></p>
+    <p>Lab Project by twinstech</p>
 </footer>
 
 <script>
-    const distInput = document.getElementById('distance');
-    const zoneInput = document.getElementById('zone');
-    const priceDisplay = document.getElementById('totalPrice');
-    const waLink = document.getElementById('waLink');
+// ===== CONFIG PROMO ANTI-BONCOS =====
+let sisaKuotaPromo = 10; // Batas maksimal order subsidi lu seharian biar gak jebol kasnya
 
-function updatePrice() {
-        const km = parseFloat(distInput.value) || 0;
-        const zone = zoneInput.value;
-        
-        let total = 0;
-        const baseFare = 10000; // 4KM pertama tetap 10rb
-        const baseKm = 4;       // Angka 3 diganti jadi 4 biar kompetitif
-        const perKm = 2500;     // Tarif per KM selanjutnya
-        
-        // Penyesuaian Surcharge
-        let surcharge = 0;
-        if (zone === 'tarkal-jauh') surcharge = 5000;
-        if (zone === 'luar-garut') surcharge = 10000; // Contoh luar kota lebih mahal dikit
+function checkPromoStatus() {
+    const sekarang = new Date();
+    const hari = sekarang.getDay(); // 3 = Rabu, 5 = Jumat
+    const jam = sekarang.getHours();
+    
+    let promoAktif = false;
+    let namaPromo = "";
+    let nominalDiskon = 0;
 
-        if (km > 0) {
-            if (km <= baseKm) {
-                total = baseFare + surcharge;
-            } else {
-                total = baseFare + ((km - baseKm) * perKm) + surcharge;
-            }
-        }
-
-        // Format Rupiah
-        const formatted = new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            maximumFractionDigits: 0
-        }).format(total);
-
-        priceDisplay.innerText = formatted;
-
-        // Update Link WA dengan Text
-        const text = `Halo GARU7, saya mau order. Estimasi jarak: ${km} KM (${zone === 'normal' ? 'Kota' : 'Kaler Atas'}). Ongkir di web: ${formatted}`;
-        waLink.href = `https://wa.me/6281543333877?text=${encodeURIComponent(text)}`;
+    // RULE: Hanya aktif Rabu & Jumat jam 13:00 s/d 15:00 WIB & Kuota masih ada
+    if ((hari === 3 || hari === 5) && (jam >= 13 && jam < 15) && sisaKuotaPromo > 0) {
+        promoAktif = true;
+        namaPromo = (hari === 3) ? "Rabu Seru" : "Jumat Berkah";
+        nominalDiskon = 5000; // Subsidi potongan Rp5.000
     }
 
-    // Listener biar real-time pas ngetik
-    distInput.addEventListener('input', updatePrice);
-    zoneInput.addEventListener('change', updatePrice);
+    // Tampilkan / sembunyikan Top Promo Bar
+    const topBar = document.getElementById('topPromoBar');
+    if (promoAktif) {
+        topBar.style.display = 'block';
+        document.getElementById('promoText').innerText = `🔥 PROMO ${namaPromo.toUpperCase()} AKTIF! Diskon Ongkir Rp5.000 Langsung Di Potong!`;
+        document.getElementById('promoQuota').innerText = sisaKuotaPromo;
+    } else {
+        topBar.style.display = 'none';
+    }
+
+    return { aktif: promoAktif, diskon: nominalDiskon, nama: namaPromo };
+}
+
+// Jalankan pengecekan status promo tiap halaman diload
+const promo = checkPromoStatus();
+
+// ===== KALKULATOR ONGKIR =====
+const distInput = document.getElementById('distance');
+const vehicleInput = document.getElementById('vehicle');
+const priceDisplay = document.getElementById('totalPrice');
+const waLink = document.getElementById('waLink');
+
+// Elemen Rincian Harga Baru
+const basePriceRow = document.getElementById('basePriceRow');
+const basePriceText = document.getElementById('basePriceText');
+const promoRow = document.getElementById('promoRow');
+const promoTextValue = document.getElementById('promoTextValue');
+
+function updatePrice() {
+    const km = parseFloat(distInput.value) || 0;
+    const vehicle = vehicleInput.value;
+    let baseTotal = 0;
+    let finalTotal = 0;
+    const baseFare = 10000, baseKm = 4;
+    const perKmMotor = 2000, perKmMobil = 4000;
+    
+    if (km > 0) {
+        const perKm = vehicle === 'mobil' ? perKmMobil : perKmMotor;
+        baseTotal = km <= baseKm ? baseFare : baseFare + ((km - baseKm) * perKm);
+    }
+
+    // Jalankan logika pengaman subsidi promo
+    const statusPromo = checkPromoStatus();
+    let potongan = 0;
+
+    if (statusPromo.aktif && baseTotal > 0) {
+        potongan = statusPromo.diskon;
+        finalTotal = baseTotal - potongan;
+        if (finalTotal < 0) finalTotal = 0; // Jaga-jaga agar ongkir tidak minus
+
+        // Tampilkan rincian diskon di struk kalkulator
+        basePriceRow.style.display = 'flex';
+        promoRow.style.display = 'flex';
+        basePriceText.innerText = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(baseTotal);
+        promoTextValue.innerText = `- ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(potongan)}`;
+    } else {
+        finalTotal = baseTotal;
+        basePriceRow.style.display = 'none';
+        promoRow.style.display = 'none';
+    }
+    
+    const formattedFinal = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(finalTotal);
+    priceDisplay.innerText = formattedFinal;
+    
+    const vehicleLabel = vehicle === 'mobil' ? 'Mobil' : 'Motor';
+    
+    // Teks WA Utama
+    let promoNote = statusPromo.aktif ? ` (Sudah termasuk Potongan Promo ${statusPromo.nama} Rp5.000)` : '';
+    const text = `Halo BAGUS, saya mau order BAGUS ${vehicleLabel}. Estimasi jarak: ${km} KM. Ongkir estimasi: ${formattedFinal}${promoNote}`;
+    waLink.href = `https://wa.me/6287895334844?text=${encodeURIComponent(text)}`;
+}
+vehicleInput.addEventListener('change', updatePrice);
+
+// ===== MAP SETUP =====
+const garutCenter = [-7.2167, 107.9000];
+const map = L.map('map').setView(garutCenter, 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19
+}).addTo(map);
+
+let markerA = null, markerB = null, routeLine = null;
+let locA = null, locB = null;
+let locAName = '', locBName = '';
+
+const iconA = L.divIcon({
+    html: '<div style="background:#e67e22;color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.35);border:2px solid white;">A</div>',
+    iconSize: [32,32], iconAnchor: [16,16], className: ''
+});
+const iconB = L.divIcon({
+    html: '<div style="background:#2ecc71;color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.35);border:2px solid white;">B</div>',
+    iconSize: [32,32], iconAnchor: [16,16], className: ''
+});
+
+function haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function drawRoute() {
+    if (!locA || !locB) return;
+    if (routeLine) map.removeLayer(routeLine);
+    
+    document.getElementById('mapResult').innerHTML = '⏳ Menghitung rute jalan...';
+
+    const url = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${locA[1]},${locA[0]};${locB[1]},${locB[0]}?overview=full&geometries=geojson`;
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.routes || !data.routes[0]) throw new Error('No route');
+            const route = data.routes[0];
+            const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+            routeLine = L.polyline(coords, { color: '#2ecc71', weight: 5, opacity: 0.95, lineJoin: 'round' }).addTo(map);
+            map.fitBounds(routeLine.getBounds(), { padding: [40, 40] });
+
+            const dist = route.distance / 1000;
+            const distRounded = Math.ceil(dist * 10) / 10;
+            distInput.value = distRounded.toFixed(1);
+            updatePrice();
+
+            document.getElementById('mapResult').innerHTML =
+                `📍 <b>${locAName || 'Lokasi kamu'}</b> → 🎯 <b>${locBName || 'Tujuan'}</b><br>Estimasi jarak: <span>~${distRounded.toFixed(1)} KM</span> <small style="color:#2ecc71">(rute jalan)</small>`;
+
+            const formatted = priceDisplay.innerText;
+            const statusPromo = checkPromoStatus();
+            let promoNoteWA = statusPromo.aktif ? `\n🎁 Promo: Potongan ${statusPromo.nama} Rp5.000` : '';
+
+            const waText = `Halo BAGUS 🛵, saya mau order ojek!\n\n📍 Jemput: ${locAName || 'Lokasi saya (lihat maps)'}\n🎯 Tujuan: ${locBName}\n📏 Jarak: ~${distRounded.toFixed(1)} KM${promoNoteWA}\n💰 Total Estimasi: ${formatted}\n\nMohon konfirmasi harga dan ketersediaan driver ya.`;
+            const btnOrder = document.getElementById('btnOrderMap');
+            btnOrder.href = `https://wa.me/6287895334844?text=${encodeURIComponent(waText)}`;
+            btnOrder.classList.add('show');
+        })
+        .catch(() => {
+            routeLine = L.polyline([locA, locB], { color: '#e67e22', weight: 3, dashArray: '8,6', opacity: 0.85 }).addTo(map);
+            map.fitBounds([locA, locB], { padding: [40, 40] });
+
+            const dist = haversine(locA[0], locA[1], locB[0], locB[1]);
+            const distRounded = Math.ceil(dist * 10) / 10;
+            distInput.value = distRounded.toFixed(1);
+            updatePrice();
+
+            document.getElementById('mapResult').innerHTML =
+                `📍 <b>${locAName || 'Lokasi kamu'}</b> → 🎯 <b>${locBName || 'Tujuan'}</b><br>Estimasi jarak: <span>~${distRounded.toFixed(1)} KM</span> <small style="color:#e74c3c">(garis lurus - OSRM gagal)</small>`;
+
+            const formatted = priceDisplay.innerText;
+            const statusPromo = checkPromoStatus();
+            let promoNoteWA = statusPromo.aktif ? `\n🎁 Promo: Potongan ${statusPromo.nama} Rp5.000` : '';
+
+            const waText = `Halo BAGUS 🛵, saya mau order ojek!\n\n📍 Jemput: ${locAName || 'Lokasi saya (lihat maps)'}\n🎯 Tujuan: ${locBName}\n📏 Jarak: ~${distRounded.toFixed(1)} KM${promoNoteWA}\n💰 Total Estimasi: ${formatted}\n\nMohon konfirmasi harga dan ketersediaan driver ya.`;
+            const btnOrder = document.getElementById('btnOrderMap');
+            btnOrder.href = `https://wa.me/6287895334844?text=${encodeURIComponent(waText)}`;
+            btnOrder.classList.add('show');
+        });
+}
+
+function setMarkerA(latlng, name) {
+    if (markerA) map.removeLayer(markerA);
+    locA = [latlng.lat, latlng.lng];
+    locAName = name;
+    markerA = L.marker(latlng, { icon: iconA }).addTo(map).bindPopup(`📍 <b>Lokasi Kamu</b><br><small>${name}</small>`).openPopup();
+    if (locB) drawRoute();
+}
+
+function setMarkerB(latlng, name) {
+    if (markerB) map.removeLayer(markerB);
+    locB = [latlng.lat, latlng.lng];
+    locBName = name;
+    markerB = L.marker(latlng, { icon: iconB }).addTo(map).bindPopup(`🎯 <b>Tujuan</b><br><small>${name}</small>`).openPopup();
+    if (locA) drawRoute();
+    else document.getElementById('mapResult').innerHTML = 'Tujuan dipilih. Tap <b>Lokasi Saya</b> untuk set titik jemput.';
+}
+
+// ===== GPS =====
+function setGPSStatus(state, text) {
+    const dot = document.getElementById('gpsDot');
+    const txt = document.getElementById('gpsStatusText');
+    dot.className = 'gps-dot' + (state ? ' ' + state : '');
+    txt.textContent = text;
+}
+
+function requestGPS() {
+    const btn = document.getElementById('btnMyLoc');
+    btn.disabled = true;
+    btn.textContent = '⏳ Mendeteksi...';
+    setGPSStatus('', 'Mendeteksi lokasi kamu...');
+
+    if (!navigator.geolocation) {
+        setGPSStatus('error', 'Browser tidak mendukung GPS.');
+        btn.disabled = false;
+        btn.textContent = '📡 Lokasi Saya';
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+            map.setView(latlng, 16);
+            setGPSStatus('active', 'Lokasi berhasil dideteksi ✓');
+            btn.disabled = false;
+            btn.textContent = '📡 Lokasi Saya';
+
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latlng.lat}&lon=${latlng.lng}&format=json`)
+                .then(r => r.json())
+                .then(data => {
+                    const name = data.display_name ? data.display_name.split(',').slice(0,3).join(', ') : 'Lokasi kamu';
+                    setMarkerA(latlng, name);
+                    document.getElementById('mapResult').innerHTML = `📍 Lokasi kamu terdeteksi. Sekarang ketik tujuan di atas peta.`;
+                })
+                .catch(() => {
+                    setMarkerA(latlng, 'Lokasi kamu');
+                    document.getElementById('mapResult').innerHTML = `📍 Lokasi kamu terdeteksi. Sekarang ketik tujuan di atas peta.`;
+                });
+        },
+        (err) => {
+            setGPSStatus('error', 'GPS tidak bisa diakses. Klik peta untuk set lokasi manual.');
+            btn.disabled = false;
+            btn.textContent = '📡 Lokasi Saya';
+            document.getElementById('mapResult').innerHTML = 'GPS ditolak. Klik peta untuk set titik A (jemput) dan B (tujuan) secara manual.';
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+}
+
+map.on('click', function(e) {
+    if (!locA) {
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${e.latlng.lat}&lon=${e.latlng.lng}&format=json`)
+            .then(r => r.json())
+            .then(data => {
+                const name = data.display_name ? data.display_name.split(',').slice(0,3).join(', ') : 'Titik jemput';
+                setMarkerA(e.latlng, name);
+                document.getElementById('mapResult').innerHTML = 'Titik jemput dipilih. Sekarang ketik atau klik titik tujuan.';
+            }).catch(() => {
+                setMarkerA(e.latlng, 'Titik jemput');
+            });
+    } else if (!locB) {
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${e.latlng.lat}&lon=${e.latlng.lng}&format=json`)
+            .then(r => r.json())
+            .then(data => {
+                const name = data.display_name ? data.display_name.split(',').slice(0,3).join(', ') : 'Titik tujuan';
+                setMarkerB(e.latlng, name);
+                document.getElementById('destInput').value = name;
+                document.getElementById('clearDest').classList.add('show');
+            }).catch(() => {
+                setMarkerB(e.latlng, 'Titik tujuan');
+            });
+    }
+});
+
+// ===== AUTOCOMPLETE NOMINATIM =====
+let acTimeout = null;
+const destInput = document.getElementById('destInput');
+const acList = document.getElementById('acList');
+const clearDestBtn = document.getElementById('clearDest');
+
+destInput.addEventListener('input', function() {
+    const val = this.value.trim();
+    clearDestBtn.classList.toggle('show', val.length > 0);
+    clearTimeout(acTimeout);
+    if (val.length < 3) { acList.classList.remove('show'); acList.innerHTML = ''; return; }
+
+    acTimeout = setTimeout(() => {
+        acList.innerHTML = '<div class="autocomplete-loading">🔍 Mencari...</div>';
+        acList.classList.add('show');
+
+        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val + ' Garut')}&format=json&limit=5&countrycodes=id&addressdetails=1`)
+            .then(r => r.json())
+            .then(results => {
+                if (!results.length) {
+                    acList.innerHTML = '<div class="autocomplete-loading">Tidak ditemukan. Coba lebih spesifik.</div>';
+                    return;
+                }
+                acList.innerHTML = '';
+                results.forEach(place => {
+                    const shortName = place.display_name.split(',').slice(0, 3).join(', ');
+                    const item = document.createElement('div');
+                    item.className = 'autocomplete-item';
+                    item.innerHTML = `
+                        <span class="ac-icon">📍</span>
+                        <div>
+                            <div class="ac-name">${place.name || shortName.split(',')[0]}</div>
+                            <div class="ac-address">${shortName}</div>
+                        </div>
+                    `;
+                    item.addEventListener('click', () => {
+                        destInput.value = place.name || shortName.split(',')[0];
+                        clearDestBtn.classList.add('show');
+                        acList.classList.remove('show');
+                        const latlng = L.latLng(parseFloat(place.lat), parseFloat(place.lon));
+                        setMarkerB(latlng, shortName);
+                        map.setView(latlng, 16);
+                    });
+                    acList.appendChild(item);
+                });
+            })
+            .catch(() => {
+                acList.innerHTML = '<div class="autocomplete-loading">Gagal koneksi. Coba klik peta langsung.</div>';
+            });
+    }, 500);
+});
+
+document.addEventListener('click', function(e) {
+    if (!document.getElementById('destWrap').contains(e.target)) {
+        acList.classList.remove('show');
+    }
+});
+
+function clearDest() {
+    destInput.value = '';
+    clearDestBtn.classList.remove('show');
+    acList.classList.remove('show');
+    if (markerB) { map.removeLayer(markerB); markerB = null; }
+    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+    locB = null; locBName = '';
+    document.getElementById('btnOrderMap').classList.remove('show');
+    document.getElementById('mapResult').innerHTML = locA ? 'Tujuan dihapus. Ketik atau klik tujuan baru.' : 'Pilih lokasi jemput dan tujuan.';
+    distInput.value = '';
+    updatePrice();
+}
+
+function resetMap() {
+    if (markerA) { map.removeLayer(markerA); markerA = null; }
+    if (markerB) { map.removeLayer(markerB); markerB = null; }
+    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+    locA = null; locB = null; locAName = ''; locBName = '';
+    destInput.value = '';
+    clearDestBtn.classList.remove('show');
+    acList.classList.remove('show');
+    document.getElementById('btnOrderMap').classList.remove('show');
+    document.getElementById('mapResult').innerHTML = 'Peta direset. Tap "Lokasi Saya" atau klik peta.';
+    setGPSStatus('', 'Tap "Lokasi Saya" untuk deteksi GPS.');
+    distInput.value = '';
+    updatePrice();
+    map.setView(garutCenter, 14);
+}
+
+window.addEventListener('load', () => {
+    setTimeout(requestGPS, 800);
+});
 </script>
 
 </body>
