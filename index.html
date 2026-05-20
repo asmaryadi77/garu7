@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+<!-- Playables SDK -->
 <script>// Playables SDK v1.0.0
 // Game lifecycle bridge: rAF-based game-ready detection + event communication
 (function() {
@@ -529,10 +530,6 @@
 </head>
 <body>
 
-<div style="background-color: #ff3838; color: white; text-align: center; padding: 12px; font-weight: bold; font-size: 14px; position: relative; z-index: 9999; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-    🛒 <span>BAGUS AM PROMO:</span> Jajan Hemat Diskon Ongkir 10%! Khusus Belanja Minimal Rp50.000, Ongkir Langsung Dipotong Rp5.000 Flat!
-</div>
-
 <header>
     <div class="logo">BAGUS (Bantosan Garut Squad)</div>
     <div class="tag-lokal">ASLI GARUT</div>
@@ -548,6 +545,7 @@
     </div>
 </section>
 
+<!-- MAP SECTION -->
 <div class="map-section">
     <h4>🗺️ Order Ojek — Pilih Lokasi</h4>
 
@@ -574,6 +572,7 @@
     </div>
 </div>
 
+<!-- KALKULATOR ONGKIR -->
 <div class="map-section" style="margin-top: 10px; margin-bottom: 30px;">
     <h4>🧮 Cek Estimasi Ongkir</h4>
     <div class="price-calc" style="width: 100%; box-sizing: border-box;">
@@ -592,6 +591,7 @@
     </div>
 </div>
 
+<!-- LAYANAN GRID -->
 <div class="layanan-section">
     <h4>🚀 Pilih Layanan</h4>
     <div class="layanan-grid">
@@ -632,6 +632,7 @@
             <span class="svc-name">BAGUS Mobil</span>
         </a>
 
+        <!-- BAGUS AM Featured Slot - span 2 kolom -->
         <a href="https://store.kiarka.id/mieayamoye" class="layanan-card layanan-am-featured">
             <div class="am-label">🍔 BAGUS AM</div>
             <div class="am-inner">
@@ -647,6 +648,7 @@
     </div>
 </div>
 
+<!-- FNB GRID -->
 <div class="fnb-section">
     <h4>🍔 BAGUS AM</h4>
     <div class="fnb-grid">
@@ -851,7 +853,7 @@ function requestGPS() {
             setGPSStatus('error', 'GPS tidak bisa diakses. Klik peta untuk set lokasi manual.');
             btn.disabled = false;
             btn.textContent = '📡 Lokasi Saya';
-            document.getElementById('mapResult').innerHTML = 'GPS ditolak. Klik peta untuk set titik A (jemput) and B (tujuan) secara manual.';
+            document.getElementById('mapResult').innerHTML = 'GPS ditolak. Klik peta untuk set titik A (jemput) dan B (tujuan) secara manual.';
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -948,7 +950,7 @@ function clearDest() {
     if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
     locB = null; locBName = '';
     document.getElementById('btnOrderMap').classList.remove('show');
-    document.getElementById('mapResult').innerHTML = locA ? 'Tujuan dihapus. Ketik atau klik tujuan baru.' : 'Pilih lokasi jemput and tujuan.';
+    document.getElementById('mapResult').innerHTML = locA ? 'Tujuan dihapus. Ketik atau klik tujuan baru.' : 'Pilih lokasi jemput dan tujuan.';
     distInput.value = '';
     updatePrice();
 }
