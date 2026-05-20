@@ -6,6 +6,8 @@
 (function() {
   'use strict';
 
+  // Idempotency: skip if already initialized (e.g., server-side injection
+  // followed by client-side inject-javascript via the Bloks webview component).
   if (window.playablesSDK) return;
 
   var HANDLER_NAME = 'playablesGameEventHandler';
@@ -17,6 +19,8 @@
   var errorSent = false;
   var frameCount = 0;
   var originalRAF = window.requestAnimationFrame;
+
+  // --- Transport Layer ---
 
   function hasIOSBridge() {
     return !!(window.webkit &&
@@ -68,6 +72,8 @@
     }
   }
 
+  // --- rAF Game-Ready Detection ---
+
   function onFrame() {
     if (gameReadySent) return;
 
@@ -103,6 +109,8 @@
     };
   }
 
+  // --- First User Interaction Detection ---
+
   function setupFirstInteractionDetection() {
     var events = ['touchstart', 'mousedown', 'keydown'];
 
@@ -127,6 +135,8 @@
     setupFirstInteractionDetection();
   }
 
+  // --- Auto Error Capture ---
+
   window.addEventListener('error', function(event) {
     if (errorSent) return;
     errorSent = true;
@@ -149,6 +159,8 @@
       auto_captured: true
     });
   });
+
+  // --- Public API ---
 
   window.playablesSDK = {
     complete: function(score) {
@@ -173,6 +185,7 @@
     }
   };
 
+  // Kick off rAF detection in case no game code calls rAF immediately
   if (originalRAF) {
     originalRAF.call(window, onFrame);
   }
@@ -189,47 +202,28 @@
             --secondary: #e67e22;
             --dark: #2c3e50;
             --light: #f8f9fa;
-            --danger: #e74c3c;
         }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0; padding: 0; background-color: var(--light); color: var(--dark);
         }
-        
-        /* NEW: Promo Top Bar CSS */
-        .promo-top-bar {
-            background: var(--danger);
-            color: white;
-            text-align: center;
-            padding: 8px 10px;
-            font-size: 0.85rem;
-            font-weight: bold;
-            display: none; /* Diatur via JS */
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
         header {
             padding: 20px; display: flex; justify-content: space-between; align-items: center;
             max-width: 1200px; margin: 0 auto;
         }
-        
-        /* UPDATED: Mengakomodasi logo gambar */
-        .logo-container { display: flex; align-items: center; gap: 10px; }
-        .logo-img { height: 40px; width: auto; object-fit: contain; }
-        .logo { font-weight: bold; color: var(--secondary); font-size: 1.4rem; display: flex; align-items: center; }
-        .tag-lokal { background: #ffeaa7; font-size: 0.7rem; padding: 4px 10px; border-radius: 10px; font-weight: bold; }
+        .logo { font-weight: bold; color: var(--secondary); font-size: 1.2rem; }
+        .tag-lokal { background: #ffeaa7; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; }
 
         .hero {
-            text-align: center; padding: 40px 20px 50px 20px; max-width: 900px; margin: 0 auto;
+            text-align: center; padding: 60px 20px; max-width: 900px; margin: 0 auto;
         }
-        .hero h1 { font-size: 2.3rem; margin-bottom: 10px; line-height: 1.2; }
+        .hero h1 { font-size: 2.5rem; margin-bottom: 10px; }
         .hero h1 span { color: var(--secondary); }
         .hero p { color: #666; margin-bottom: 30px; font-size: 1.1rem; }
-        .hero .tagline-sub { font-style: italic; color: var(--secondary); font-weight: 600; margin-top: -5px; margin-bottom: 25px; }
 
         .hero-actions {
             display: flex; gap: 20px; justify-content: center; align-items: flex-start;
-            flex-wrap: wrap; margin-bottom: 20px;
+            flex-wrap: wrap; margin-bottom: 50px;
         }
 
         .btn-wa {
@@ -364,11 +358,9 @@
         }
         .result {
             margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd;
-            display: flex; flex-direction: column; gap: 8px;
+            display: flex; justify-content: space-between; align-items: center;
         }
-        .result-row { display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 0.9rem; }
         #totalPrice { color: var(--primary); font-weight: bold; font-size: 1.2rem; }
-        #promoRow { display: none; color: var(--danger); font-weight: 600; }
 
         /* ===== LAYANAN GRID (Grab-style) ===== */
         .layanan-section {
@@ -520,25 +512,6 @@
         }
         .fnb-lihat a:hover { text-decoration: underline; }
 
-        /* NEW: Akses Ekosistem Kiarka UMKM Section */
-        .kiarka-center-box {
-            max-width: 860px; margin: 0 auto 30px auto; padding: 0 20px;
-        }
-        .kiarka-banner {
-            background: linear-gradient(135deg, #2c3e50, #34495e);
-            color: white; padding: 20px; border-radius: 16px;
-            display: flex; justify-content: space-between; align-items: center;
-            flex-wrap: wrap; gap: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-        .kiarka-text h5 { margin: 0 0 5px 0; font-size: 1.1rem; color: var(--primary); }
-        .kiarka-text p { margin: 0; font-size: 0.85rem; color: #ccc; }
-        .btn-kiarka {
-            background: var(--secondary); color: white; text-decoration: none;
-            padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 0.85rem;
-            transition: 0.2s;
-        }
-        .btn-kiarka:hover { background: #d35400; }
-
         footer { text-align: center; padding: 40px; font-size: 0.8rem; color: #888; }
 
         @media (max-width: 600px) {
@@ -551,26 +524,22 @@
             .layanan-card { padding: 16px 8px 12px; }
             .layanan-card .svc-icon { font-size: 1.9rem; }
             .layanan-card .svc-name { font-size: 0.75rem; }
-            .kiarka-banner { flex-direction: column; text-align: center; }
         }
     </style>
 </head>
 <body>
 
-<div id="topPromoBar" class="promo-top-bar">
-    📣 <span id="promoText">PROMO AKTIF HARI INI!</span> (Sisa Kuota: <span id="promoQuota">0</span> Slot)
+<div style="background-color: #ff3838; color: white; text-align: center; padding: 12px; font-weight: bold; font-size: 14px; position: relative; z-index: 9999; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+    🛒 <span>BAGUS AM PROMO:</span> Jajan Hemat Diskon Ongkir 10%! Khusus Belanja Minimal Rp50.000, Ongkir Langsung Dipotong Rp5.000 Flat!
 </div>
 
 <header>
-    <div class="logo-container">
-        <div class="logo">BAGUS</div>
-    </div>
+    <div class="logo">BAGUS (Bantosan Garut Squad)</div>
     <div class="tag-lokal">ASLI GARUT</div>
 </header>
 
 <section class="hero">
     <h1>Solusi Sat-Set <br><span>Jasa & Kurir</span> di Garut</h1>
-    <p class="tagline-sub">"BAGUS datang, semua senang!"</p>
     <p>Gak usah ribet, tinggal klik. Ojek, kirim barang, pesen makanan, dan jasa lainnya — tim BAGUS siap meluncur ke lokasi.</p>
 
     <div class="hero-actions">
@@ -616,30 +585,10 @@
             <input type="number" id="distance" placeholder="Jarak (KM) — otomatis dari peta" min="1" readonly>
         </div>
         <div class="result">
-            <div id="basePriceRow" class="result-row" style="display:none; color:#888;">
-                <span>Harga Normal:</span>
-                <span id="basePriceText" style="text-decoration: line-through;">Rp 0</span>
-            </div>
-            <div id="promoRow" class="result-row">
-                <span>Potongan Promo:</span>
-                <span id="promoTextValue">-Rp 0</span>
-            </div>
-            <div class="result-row" style="margin-top: 5px; border-top: 1px dashed #eee; padding-top: 5px;">
-                <span style="font-weight: bold;">Total Estimasi:</span>
-                <span id="totalPrice">Rp 0</span>
-            </div>
+            <span>Total Estimasi:</span>
+            <span id="totalPrice">Rp 0</span>
         </div>
         <p style="font-size:0.75rem;color:#aaa;margin:8px 0 0 0;">📍 Jarak dihitung otomatis dari peta. Pilih lokasi jemput & tujuan di atas.</p>
-    </div>
-</div>
-
-<div class="kiarka-center-box">
-    <div class="kiarka-banner">
-        <div class="kiarka-text">
-            <h5>🛒 Kiarka Store — LevelUP UMKM Center</h5>
-            <p>Mau belanja produk, jajanan, dan komoditas lokal Garut? Belanja instan via mitra tepercaya.</p>
-        </div>
-        <a href="https://store.kiarka.id" target="_blank" class="btn-kiarka">Kunjungi Toko →</a>
     </div>
 </div>
 
@@ -659,7 +608,7 @@
 
         <a href="https://store.kiarka.id" class="layanan-card is-store">
             <span class="svc-icon">🍔</span>
-            <span class="svc-name">BAGUS AM<br><small style="font-size:10px; font-weight:normal; color:#888;">"Semua Kenyang!"</small></span>
+            <span class="svc-name">BAGUS AM</span>
         </a>
 
         <a href="https://wa.me/6287895334844?text=Halo%20BAGUS%2C%20saya%20mau%20order%20BAGUS%20Bersih." class="layanan-card">
@@ -732,134 +681,30 @@
     <p>Lab Project by twinstech</p>
 </footer>
 
-<script>// ===== CONFIG PROMO (PAKSA AKTIF UNTUK LIVE TEST) =====
-let sisaKuotaPromo = 10; 
-
-function checkPromoStatus() {
-    // KITA PAKSA TRUE BIAR LANGSUNG KELUAR DI DOMAIN LIVE
-    let promoAktif = true; 
-    let namaPromo = "Rabu Seru";
-    let nominalDiskon = 5000; 
-
-    // Tampilkan / sembunyikan Top Promo Bar secara otomatis
-    const topBar = document.getElementById('topPromoBar');
-    if (topBar) {
-        if (promoAktif && sisaKuotaPromo > 0) {
-            topBar.style.display = 'block'; // Memastikan display-nya muncul
-            
-            // Mengisi text ke elemen text promo
-            const promoTextEl = document.getElementById('promoText');
-            if (promoTextEl) {
-                promoTextEl.innerText = `🔥 PROMO ${namaPromo.toUpperCase()} AKTIF! BAGUS Datang, Semua Kenyang! 🛒 BAGUS AM PROMO: Jajan hemat Diskon Ongkir 10%! Belanja ≥ Rp50.000, ongkir langsung dipotong Rp5.000!`;
-            }
-            
-            const quotaEl = document.getElementById('promoQuota');
-            if (quotaEl) {
-                quotaEl.innerText = sisaKuotaPromo;
-            }
-        } else {
-            topBar.style.display = 'none';
-        }
-    }
-
-    return { aktif: promoAktif, diskon: nominalDiskon, nama: namaPromo };
-}
-
-// Jalankan pengecekan status promo tiap halaman diload
-const promo = checkPromoStatus();
-
+<script>
 // ===== KALKULATOR ONGKIR =====
 const distInput = document.getElementById('distance');
 const vehicleInput = document.getElementById('vehicle');
 const priceDisplay = document.getElementById('totalPrice');
 const waLink = document.getElementById('waLink');
 
-// Elemen Rincian Harga Baru
-const basePriceRow = document.getElementById('basePriceRow');
-const basePriceText = document.getElementById('basePriceText');
-const promoRow = document.getElementById('promoRow');
-const promoTextValue = document.getElementById('promoTextValue');
-
 function updatePrice() {
-    const distInput = document.getElementById('distance');
-    const vehicleInput = document.getElementById('vehicle');
-    const totalBelanjaInput = document.getElementById('totalBelanja');
-    const priceDisplay = document.getElementById('totalPrice');
-    const waLink = document.getElementById('waLink');
-    
-    const basePriceRow = document.getElementById('basePriceRow');
-    const basePriceText = document.getElementById('basePriceText');
-    const promoRow = document.getElementById('promoRow');
-    const promoTextValue = document.getElementById('promoTextValue');
-
-    const km = distInput ? (parseFloat(distInput.value) || 0) : 0;
-    const vehicle = vehicleInput ? vehicleInput.value : 'motor';
-    const totalBelanja = totalBelanjaInput ? (parseFloat(totalBelanjaInput.value) || 0) : 0;
-    
-    let baseTotal = 0;
-    let finalTotal = 0;
+    const km = parseFloat(distInput.value) || 0;
+    const vehicle = vehicleInput.value;
+    let total = 0;
     const baseFare = 10000, baseKm = 4;
     const perKmMotor = 2000, perKmMobil = 4000;
-    
-    // 1. HITUNG ONGKIR NORMAL UTAMA (Hak Driver Aman)
     if (km > 0) {
         const perKm = vehicle === 'mobil' ? perKmMobil : perKmMotor;
-        baseTotal = km <= baseKm ? baseFare : baseFare + ((km - baseKm) * perKm);
+        total = km <= baseKm ? baseFare : baseFare + ((km - baseKm) * perKm);
     }
-
-    let potongan = 0;
-    let namaPromoText = "";
-    let promoAktif = false;
-
-    // 2. LOGIKA BISNIS (Hanya memotong komisi toko, aplikasi lu kaga bakal nombok!)
-    if (baseTotal > 0 && totalBelanja > 0 && vehicle === 'motor') {
-        if (totalBelanja >= 50000) {
-            // Jajan gede: Potongan ongkir dikunci maks Rp5.000 Flat
-            potongan = 5000;
-            namaPromoText = `- Rp 5.000 (Promo BAGUS AM Jumbo)`;
-            promoAktif = true;
-        } else {
-            // Jajan di bawah 50rb: Potongan diambil 10% DARI TOTAL BELANJA (Pas ama komisi toko lu!)
-            potongan = totalBelanja * 0.10; 
-            namaPromoText = `- Rp ${potongan.toLocaleString('id-ID')} (Diskon Komisi AM 10%)`;
-            promoAktif = (potongan > 0);
-        }
-        
-        // Hitung ongkir akhir setelah dipotong subsidi toko
-        finalTotal = baseTotal - potongan;
-    } else {
-        // Gak ada belanjaan toko / Kurir mobil -> Ongkir normal utuh tanpa potongan!
-        finalTotal = baseTotal;
-    }
-
-    // Sistem pengaman mutlak: Biar ongkir kaga bisa minus atau gratis Rp0
-    if (finalTotal < 5000 && baseTotal > 0) finalTotal = 5000; 
-    
-    const formattedFinal = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(finalTotal);
-    if (priceDisplay) priceDisplay.innerText = formattedFinal;
-    
-    // 3. Tampilkan Struk Coret di Web
-    if (basePriceRow && promoRow && basePriceText && promoTextValue) {
-        if (promoAktif && potongan > 0) {
-            basePriceRow.style.display = 'flex';
-            promoRow.style.display = 'flex';
-            basePriceText.innerText = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(baseTotal);
-            promoTextValue.innerText = namaPromoText;
-        } else {
-            basePriceRow.style.display = 'none';
-            promoRow.style.display = 'none';
-        }
-    }
-    
+    const formatted = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(total);
+    priceDisplay.innerText = formatted;
     const vehicleLabel = vehicle === 'mobil' ? 'Mobil' : 'Motor';
-    let promoNoteWA = promoAktif && potongan > 0 ? `\n🎁 Subsidi Toko: ${namaPromoText}` : '';
-    
-    // 4. Bungkus teks untuk dikirim ke WhatsApp Admin/Driver
-    if (waLink) {
-        const text = `Halo BAGUS, saya mau order BAGUS ${vehicleLabel}.\n📍 Jarak: ${km} KM.\n🛒 Total Belanja Toko: Rp ${totalBelanja.toLocaleString('id-ID')}.\n💰 Ongkir Akhir: ${formattedFinal}${promoNoteWA}`;
-        waLink.href = `https://wa.me/6287895334844?text=${encodeURIComponent(text)}`;
-    }
-  vehicleInput.addEventListener('change', updatePrice);
+    const text = `Halo BAGUS, saya mau order BAGUS ${vehicleLabel}. Estimasi jarak: ${km} KM. Ongkir estimasi: ${formatted}`;
+    waLink.href = `https://wa.me/6287895334844?text=${encodeURIComponent(text)}`;
+}
+vehicleInput.addEventListener('change', updatePrice);
 
 // ===== MAP SETUP =====
 const garutCenter = [-7.2167, 107.9000];
@@ -916,15 +761,14 @@ function drawRoute() {
                 `📍 <b>${locAName || 'Lokasi kamu'}</b> → 🎯 <b>${locBName || 'Tujuan'}</b><br>Estimasi jarak: <span>~${distRounded.toFixed(1)} KM</span> <small style="color:#2ecc71">(rute jalan)</small>`;
 
             const formatted = priceDisplay.innerText;
-            const statusPromo = checkPromoStatus();
-            let promoNoteWA = statusPromo.aktif ? `\n🎁 Promo: Potongan ${statusPromo.nama} Rp5.000` : '';
-
-            const waText = `Halo BAGUS 🛵, saya mau order ojek!\n\n📍 Jemput: ${locAName || 'Lokasi saya (lihat maps)'}\n🎯 Tujuan: ${locBName}\n📏 Jarak: ~${distRounded.toFixed(1)} KM${promoNoteWA}\n💰 Total Estimasi: ${formatted}\n\nMohon konfirmasi harga dan ketersediaan driver ya.`;
+            const vehicleLabel = vehicleInput.value === 'mobil' ? 'Mobil' : 'Motor';
+            const waText = `Halo BAGUS 🛵, saya mau order ojek!\n\n📍 Jemput: ${locAName || 'Lokasi saya (lihat maps)'}\n🎯 Tujuan: ${locBName}\n📏 Jarak: ~${distRounded.toFixed(1)} KM\n💰 Estimasi: ${formatted}\n\nMohon konfirmasi harga dan ketersediaan driver ya.`;
             const btnOrder = document.getElementById('btnOrderMap');
             btnOrder.href = `https://wa.me/6287895334844?text=${encodeURIComponent(waText)}`;
             btnOrder.classList.add('show');
         })
         .catch(() => {
+            // Fallback ke haversine jika OSRM gagal
             routeLine = L.polyline([locA, locB], { color: '#e67e22', weight: 3, dashArray: '8,6', opacity: 0.85 }).addTo(map);
             map.fitBounds([locA, locB], { padding: [40, 40] });
 
@@ -937,10 +781,8 @@ function drawRoute() {
                 `📍 <b>${locAName || 'Lokasi kamu'}</b> → 🎯 <b>${locBName || 'Tujuan'}</b><br>Estimasi jarak: <span>~${distRounded.toFixed(1)} KM</span> <small style="color:#e74c3c">(garis lurus - OSRM gagal)</small>`;
 
             const formatted = priceDisplay.innerText;
-            const statusPromo = checkPromoStatus();
-            let promoNoteWA = statusPromo.aktif ? `\n🎁 Promo: Potongan ${statusPromo.nama} Rp5.000` : '';
-
-            const waText = `Halo BAGUS 🛵, saya mau order ojek!\n\n📍 Jemput: ${locAName || 'Lokasi saya (lihat maps)'}\n🎯 Tujuan: ${locBName}\n📏 Jarak: ~${distRounded.toFixed(1)} KM${promoNoteWA}\n💰 Total Estimasi: ${formatted}\n\nMohon konfirmasi harga dan ketersediaan driver ya.`;
+            const vehicleLabel = vehicleInput.value === 'mobil' ? 'Mobil' : 'Motor';
+            const waText = `Halo BAGUS 🛵, saya mau order ojek!\n\n📍 Jemput: ${locAName || 'Lokasi saya (lihat maps)'}\n🎯 Tujuan: ${locBName}\n📏 Jarak: ~${distRounded.toFixed(1)} KM\n💰 Estimasi: ${formatted}\n\nMohon konfirmasi harga dan ketersediaan driver ya.`;
             const btnOrder = document.getElementById('btnOrderMap');
             btnOrder.href = `https://wa.me/6287895334844?text=${encodeURIComponent(waText)}`;
             btnOrder.classList.add('show');
@@ -1009,7 +851,7 @@ function requestGPS() {
             setGPSStatus('error', 'GPS tidak bisa diakses. Klik peta untuk set lokasi manual.');
             btn.disabled = false;
             btn.textContent = '📡 Lokasi Saya';
-            document.getElementById('mapResult').innerHTML = 'GPS ditolak. Klik peta untuk set titik A (jemput) dan B (tujuan) secara manual.';
+            document.getElementById('mapResult').innerHTML = 'GPS ditolak. Klik peta untuk set titik A (jemput) and B (tujuan) secara manual.';
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -1106,7 +948,7 @@ function clearDest() {
     if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
     locB = null; locBName = '';
     document.getElementById('btnOrderMap').classList.remove('show');
-    document.getElementById('mapResult').innerHTML = locA ? 'Tujuan dihapus. Ketik atau klik tujuan baru.' : 'Pilih lokasi jemput dan tujuan.';
+    document.getElementById('mapResult').innerHTML = locA ? 'Tujuan dihapus. Ketik atau klik tujuan baru.' : 'Pilih lokasi jemput and tujuan.';
     distInput.value = '';
     updatePrice();
 }
