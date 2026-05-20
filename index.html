@@ -781,16 +781,27 @@ const promoRow = document.getElementById('promoRow');
 const promoTextValue = document.getElementById('promoTextValue');
 
 function updatePrice() {
-    const km = parseFloat(distInput.value) || 0;
-    const vehicle = vehicleInput.value;
-    const totalBelanja = parseFloat(totalBelanjaInput.value) || 0; // Nominal belanja toko
+    const distInput = document.getElementById('distance');
+    const vehicleInput = document.getElementById('vehicle');
+    const totalBelanjaInput = document.getElementById('totalBelanja');
+    const priceDisplay = document.getElementById('totalPrice');
+    const waLink = document.getElementById('waLink');
+    
+    const basePriceRow = document.getElementById('basePriceRow');
+    const basePriceText = document.getElementById('basePriceText');
+    const promoRow = document.getElementById('promoRow');
+    const promoTextValue = document.getElementById('promoTextValue');
+
+    const km = distInput ? (parseFloat(distInput.value) || 0) : 0;
+    const vehicle = vehicleInput ? vehicleInput.value : 'motor';
+    const totalBelanja = totalBelanjaInput ? (parseFloat(totalBelanjaInput.value) || 0) : 0;
     
     let baseTotal = 0;
     let finalTotal = 0;
     const baseFare = 10000, baseKm = 4;
     const perKmMotor = 2000, perKmMobil = 4000;
     
-    // 1. Hitung Tarif Dasar Ongkir Asli
+    // 1. HITUNG ONGKIR NORMAL UTAMA (Hak Driver Aman)
     if (km > 0) {
         const perKm = vehicle === 'mobil' ? perKmMobil : perKmMotor;
         baseTotal = km <= baseKm ? baseFare : baseFare + ((km - baseKm) * perKm);
@@ -800,51 +811,54 @@ function updatePrice() {
     let namaPromoText = "";
     let promoAktif = false;
 
-    // 2. Logika Diskon Ongkir Berdasarkan Nilai Ongkir Dasar (Khusus Motor)
+    // 2. LOGIKA BISNIS (Hanya memotong komisi toko, aplikasi lu kaga bakal nombok!)
     if (baseTotal > 0 && totalBelanja > 0 && vehicle === 'motor') {
         if (totalBelanja >= 50000) {
-            // Jika belanja >= 50rb, dapet diskon maksimal flat Rp5.000
+            // Jajan gede: Potongan ongkir dikunci maks Rp5.000 Flat
             potongan = 5000;
             namaPromoText = `- Rp 5.000 (Promo BAGUS AM Jumbo)`;
             promoAktif = true;
         } else {
-            // Jika belanja di bawah 50rb, diskon HANYA 10% DARI ONGKIR DASAR
-            potongan = baseTotal * 0.10; 
-            namaPromoText = `- Rp ${potongan.toLocaleString('id-ID')} (Diskon Ongkir 10%)`;
-            promoAktif = true;
+            // Jajan di bawah 50rb: Potongan diambil 10% DARI TOTAL BELANJA (Pas ama komisi toko lu!)
+            potongan = totalBelanja * 0.10; 
+            namaPromoText = `- Rp ${potongan.toLocaleString('id-ID')} (Diskon Komisi AM 10%)`;
+            promoAktif = (potongan > 0);
         }
         
-        // Hitung total akhir setelah dipotong diskon
+        // Hitung ongkir akhir setelah dipotong subsidi toko
         finalTotal = baseTotal - potongan;
     } else {
+        // Gak ada belanjaan toko / Kurir mobil -> Ongkir normal utuh tanpa potongan!
         finalTotal = baseTotal;
     }
 
-    // Pastikan total akhir tidak minus
-    if (finalTotal < 0) finalTotal = 0;
+    // Sistem pengaman mutlak: Biar ongkir kaga bisa minus atau gratis Rp0
+    if (finalTotal < 5000 && baseTotal > 0) finalTotal = 5000; 
     
-    // Tampilkan hasil akhir ke web
     const formattedFinal = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(finalTotal);
-    priceDisplay.innerText = formattedFinal;
+    if (priceDisplay) priceDisplay.innerText = formattedFinal;
     
-    // 3. Update Struk Coret Secara Transparan
-    if (promoAktif && potongan > 0) {
-        basePriceRow.style.display = 'flex';
-        promoRow.style.display = 'flex';
-        basePriceText.innerText = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(baseTotal);
-        promoTextValue.innerText = namaPromoText;
-    } else {
-        basePriceRow.style.display = 'none';
-        promoRow.style.display = 'none';
+    // 3. Tampilkan Struk Coret di Web
+    if (basePriceRow && promoRow && basePriceText && promoTextValue) {
+        if (promoAktif && potongan > 0) {
+            basePriceRow.style.display = 'flex';
+            promoRow.style.display = 'flex';
+            basePriceText.innerText = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(baseTotal);
+            promoTextValue.innerText = namaPromoText;
+        } else {
+            basePriceRow.style.display = 'none';
+            promoRow.style.display = 'none';
+        }
     }
     
     const vehicleLabel = vehicle === 'mobil' ? 'Mobil' : 'Motor';
-    let promoNoteWA = promoAktif ? `\n🎁 Subsidi Ongkir: ${namaPromoText}` : '';
+    let promoNoteWA = promoAktif && potongan > 0 ? `\n🎁 Subsidi Toko: ${namaPromoText}` : '';
     
-    // 4. Kirim rincian teks matang ke WhatsApp
-    const text = `Halo BAGUS, saya mau order BAGUS ${vehicleLabel}.\n📍 Jarak: ${km} KM.\n🛒 Total Belanja Toko: Rp ${totalBelanja.toLocaleString('id-ID')}.\n💰 Ongkir Akhir: ${formattedFinal}${promoNoteWA}`;
-    waLink.href = `https://wa.me/6287895334844?text=${encodeURIComponent(text)}`;
-}
+    // 4. Bungkus teks untuk dikirim ke WhatsApp Admin/Driver
+    if (waLink) {
+        const text = `Halo BAGUS, saya mau order BAGUS ${vehicleLabel}.\n📍 Jarak: ${km} KM.\n🛒 Total Belanja Toko: Rp ${totalBelanja.toLocaleString('id-ID')}.\n💰 Ongkir Akhir: ${formattedFinal}${promoNoteWA}`;
+        waLink.href = `https://wa.me/6287895334844?text=${encodeURIComponent(text)}`;
+    }
   vehicleInput.addEventListener('change', updatePrice);
 
 // ===== MAP SETUP =====
