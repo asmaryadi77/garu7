@@ -790,42 +790,45 @@ function updatePrice() {
     const baseFare = 10000, baseKm = 4;
     const perKmMotor = 2000, perKmMobil = 4000;
     
-    // 1. Hitung Tarif Dasar Ongkir Asli
+    // 1. HITUNG TARIF DASAR UTAMA (Ini dikunci di awal biar gak bakalan Rp 0 lagi!)
     if (km > 0) {
         const perKm = vehicle === 'mobil' ? perKmMobil : perKmMotor;
         baseTotal = km <= baseKm ? baseFare : baseFare + ((km - baseKm) * perKm);
     }
 
-    let potongan = 0;
+    let官 potongan = 0;
     let namaPromoText = "";
     let promoAktif = false;
 
-    // 2. LOGIKA BARU: Diskon berdasarkan NILAI ONGKIR (Khusus Motor/Food)
+    // 2. LOGIKA DISKON ONGKIR (Hanya memotong kalau konsumen memasukkan nominal belanja makanan)
     if (baseTotal > 0 && totalBelanja > 0 && vehicle === 'motor') {
         if (totalBelanja >= 50000) {
-            // Jika belanja >= 50rb, dapet diskon maksimal flat Rp5.000
+            // Jika jajan >= 50rb, dapet diskon maksimal flat Rp5.000
             potongan = 5000;
             namaPromoText = `- Rp 5.000 (Promo BAGUS AM Jumbo)`;
             promoAktif = true;
         } else {
-            // Jika belanja di bawah 50rb, diskon HANYA 10% DARI ONGKIR DASAR
+            // Jika jajan di bawah 50rb, diskon HANYA 10% DARI ONGKIR DASAR
             potongan = baseTotal * 0.10; 
             namaPromoText = `- Rp ${potongan.toLocaleString('id-ID')} (Diskon Ongkir 10%)`;
             promoAktif = true;
         }
         
-        // Hitung total akhir setelah dipotong diskon ongkir
+        // Eksekusi pemotongan harga akhir
         finalTotal = baseTotal - potongan;
-        if (finalTotal < 0) finalTotal = 0;
     } else {
+        // Kalau gak ada belanjaan toko, tarif balik normal (Gak diskon tapi GAK Rp 0)
         finalTotal = baseTotal;
     }
+
+    // Jaga-jaga agar total akhir tidak minus jika diskon kegedean
+    if (finalTotal < 0) finalTotal = 0;
     
-    // Tampilkan hasil akhir ke web
+    // Tampilkan hasil akhir ke web live
     const formattedFinal = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(finalTotal);
     priceDisplay.innerText = formattedFinal;
     
-    // 3. Update Struk Coret Secara Transparan
+    // 3. Update Tampilan Struk Coret Secara Transparan
     if (promoAktif && potongan > 0) {
         basePriceRow.style.display = 'flex';
         promoRow.style.display = 'flex';
