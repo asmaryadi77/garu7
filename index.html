@@ -208,6 +208,49 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0; padding: 0; background-color: var(--light); color: var(--dark);
         }
+
+        /* ===== TAMBAHAN CSS PROMO & LOGO ===== */
+        .top-promo {
+            background-color: #d35400; /* Warna Orange Khas Promo */
+            color: #fff;
+            text-align: center;
+            padding: 10px 15px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        .top-promo span {
+            background: #f1c40f;
+            color: #d35400;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            animation: pulsePromo 1.5s infinite;
+        }
+        @keyframes pulsePromo {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .logo-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .img-logo {
+            width: 40px; /* Atur ukuran gambar logo */
+            height: 40px;
+            border-radius: 8px; /* Biar ujungnya tumpul */
+            object-fit: cover;
+        }
+        /* ==================================== */
+
         header {
             padding: 20px; display: flex; justify-content: space-between; align-items: center;
             max-width: 1200px; margin: 0 auto;
@@ -525,13 +568,27 @@
             .layanan-card { padding: 16px 8px 12px; }
             .layanan-card .svc-icon { font-size: 1.9rem; }
             .layanan-card .svc-name { font-size: 0.75rem; }
+            .top-promo { font-size: 0.75rem; }
         }
     </style>
 </head>
 <body>
 
+<!-- ===== BANNER PROMO ===== -->
+<div class="top-promo">
+    🎁 Promo 10 Orang Pertama: Jajan Hemat Diskon Ongkir 10% & Belanja 50rb Potongan Ongkir 5rb! <span>Klaim WA!</span>
+</div>
+<!-- ======================== -->
+
 <header>
-    <div class="logo">BAGUS (Bantosan Garut Squad)</div>
+    <!-- ===== TEMPAT LOGO ===== -->
+    <div class="logo-wrap">
+        <!-- Ganti atribut src="" dengan link/url logo BAGUS milik kamu -->
+        <img src="https://via.placeholder.com/40/2ecc71/ffffff?text=B" alt="Logo BAGUS" class="img-logo">
+        <div class="logo">BAGUS (Bantosan Garut Squad)</div>
+    </div>
+    <!-- ======================= -->
+    
     <div class="tag-lokal">ASLI GARUT</div>
 </header>
 
